@@ -2,7 +2,7 @@ const express = require('express');
 
 const router = express.Router();
 
-const { signUp, verify, logIn, forgetPassword, resetPage, resetPassword, } = require('../controllers/userController');
+const { signUp, verify, logIn, forgetPassword, resetPage, resetPassword, signOut, } = require('../controllers/userController');
 const { authenticate } = require('../middleware/authenticate');
 
 // Endpoint to register a new user
@@ -22,6 +22,9 @@ router.get('/resetPage/:id', resetPage);
 
 //Endpoint to reset user's password
 router.put('/reset-password', resetPassword)
+
+//Endpoint to signOut 
+router.post('/sign-out', signOut);
 
 
 module.exports = router;

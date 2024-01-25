@@ -310,7 +310,7 @@ const resetPassword = async (req, res) => {
         const hashPassword = bcrypt.hashSync(password, salt);
   
         await userModel.findByIdAndUpdate(id, { password: hashPassword }, { new: true });
-        return res.send("<h3>Password reset successfully</h3><script>setTimeout(() => { window.location.href = '/api/v1/login'; }, 3000);</script>");
+        return res.send("<h3>Password reset successfully</h3>");
         
     } catch (err) {
         return res.status(500).json({
