@@ -2,14 +2,17 @@ const express = require('express');
 
 const router = express.Router();
 
-const { signUp, verify, logIn, forgetPassword, resetPage, resetPassword, signOut, } = require('../controllers/userController');
+const { signUp, verify, logIn, forgetPassword, resetPage, resetPassword, signOut, resendOTP, } = require('../controllers/userController');
 const { authenticate } = require('../middleware/authenticate');
 
 // Endpoint to register a new user
 router.post('/sign-up', signUp);
 
 // Endpoint to verify a new user
-router.get('/verify/:userId/:token', verify);
+router.post('/verify/:id/:token', verify);
+
+// Endpoint to resend a new OTP 
+router.get('/resend-otp/:id', resendOTP);
 
 // Endpoint to logIn a new user
 router.post('/login', logIn);

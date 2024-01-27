@@ -52,20 +52,28 @@ const signUp = async (req, res) => {
 
             const token = jwt.sign({ userId: user._id, userName: user.userName, email: user.email }, process.env.SECRET, { expiresIn: "300s" })
             user.token = token
+            const subject = 'Email Verification'
 
-            const subject = "VERIFY YOUR ACCOUNT";
-            const link = `${req.protocol}://${req.get('host')}/api/v1/verify/${user.id}/${user.token}`;
-            const html = generateDynamicEmail(user.userName, link);
-
-            sendMail({
+            const generateOTP = () => {
+                const min = 1000;
+                const max = 9999;
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            }
+            
+            const OTP = generateOTP();
+        
+              user.otp = OTP
+              const html = generateDynamicEmail(user.userName, OTP)
+              sendMail({
                 email: user.email,
                 html,
                 subject
-            })
+              })
             await user.save();
             return res.status(200).json({
                 message: "user registered successfully",
                 data: {
+                    id: user._id,
                     firstName: user.firstName,
                     lastName: user.lastName,
                     userName: user.userName,
@@ -86,129 +94,88 @@ const signUp = async (req, res) => {
 // Function to verify a new user 
 const verify = async (req, res) => {
     try {
-        const userId = req.params.userId;
-        const user = await userModel.findById(userId);
+      const id = req.params.id;
+      const token = req.params.token;
+      const user = await userModel.findById(id);
+      const { userInput } = req.body;
 
-        if (!user) {
-            return res.status(404).send("User not found");
-        }
-
-        // Verify the initial token
-        jwt.verify(user.token, process.env.SECRET);
-
-        // Check verification status
-        if (!user.isVerified) {
-            // Update isVerified status to true
-            await userModel.findByIdAndUpdate(userId, { isVerified: true }, { new: true });
-            return res.status(200).send("You've been successfully verified. Kindly visit the Log in page to continue.");
-        }
-
-        // Refresh token if expired
-        try {
-            await new Promise((resolve, reject) => {
-                jwt.verify(user.token, process.env.SECRET, (err) => {
-                    if (err instanceof jwt.JsonWebTokenError) {
-                        // Generate a new token and update user
-                        const newToken = jwt.sign({ userId: user._id, userName: user.userName, email: user.email }, process.env.SECRET, { expiresIn: "300s" });
-                        user.token = newToken;
-                        user.save();
-
-                        // Send email for re-verification
-                        const subject = "RE-VERIFY YOUR ACCOUNT";
-                        const link = `${req.protocol}://${req.get('host')}/api/v1/verify/${user.id}/${user.token}`;
-                        const html = generateDynamicEmail(user.userName, link);
-
-                        sendMail({
-                            email: user.email,
-                            html,
-                            subject
-                        });
-
-                        reject("This link is expired. Check your email for another email to verify.");
-                    } else {
-                        resolve();
-                    }
-                });
-            });
-        } catch (err) {
-            return res.status(400).send(err);
-        }
-    } catch (err) {
-        return res.status(500).json({
-            message: "Internal server error: " + err.message,
+      if (user.isVerified === false) {
+        jwt.verify(token, process.env.SECRET)
+        if (userInput === user.otp) {
+            // Update the user if verification is successful
+            await userModel.findByIdAndUpdate(id, { isVerified: true }, { new: true });
+            return res.status(200).send("You have been successfully verified. Kindly visit the login page.");
+          } else {
+            return res.status(400).json({
+              message: "Incorrect OTP, Please check your email for the code"
+            })
+          }
+      } else {
+        return res.status(400).json({
+            message: "User already verified, please proceed to login page",
         });
+      }
+
+    } catch (err) {
+      if (err instanceof jwt.JsonWebTokenError) {
+        return res.status(500).send("<h5>OTP expired, click on the resend OTP link</h5><script>setTimeout(() => { window.location.href = '/api/v1/login'; }, 3000);</script>");
+      } else {
+        return res.status(500).json({
+          message: "Internal server error: " + err.message,
+        });
+      }
     }
-};
+  };
 
+  
 
+// Function to resend the OTP incase the user didn't get the OTP
+const resendOTP = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const user = await userModel.findById(id);
+        const token = jwt.sign({ userId: user._id, userName: user.userName, email: user.email }, process.env.SECRET, { expiresIn: "300s" })
+        user.token = token
+  
+        const generateOTP = () => {
+          const min = 1000;
+          const max = 9999;
+          return Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+      const subject = 'Email Verification'
+      const OTP = generateOTP();
+  
+        user.otp = OTP
+        const html = generateDynamicEmail(user.userName, OTP)
+        sendMail({
+          email: user.email,
+          html,
+          subject
+        })
+        await user.save()
+        return res.status(200).json({
+          message: "Please check your email for a new OTP"
+        })
 
-
-
-
-
-
-
-// const verify = async (req, res) => {
-//     try {
-//         const userId = req.params.userId;
-//         const user = await userModel.findById(userId);
-//         jwt.verify(user.token, process.env.SECRET);
-
-//             if (user.isVerified === false) {
-//                 await userModel.findByIdAndUpdate(userId, {isVerified: true}, {new: true});
-//                 return res.status(200).send("You've been successfully verified, kindly visit the Log in page to continue.");
-//             }
-//             jwt.verify(user.token, process.env.SECRET, async (err) => {
-//                 if (err instanceof jwt.JsonWebTokenError) {
-//                 const newtoken = jwt.sign({userId: user._id, userName: user.userName, email: user.email}, process.env.SECRET, {expiresIn: "300s"})
-//                 user.token = newtoken
-//                 user.save()
-
-//                 const subject = "RE-VERIFY YOUR ACCOUNT";
-//                 const link = `${req.protocol}://${req.get('host')}/api/v1/verify/${user.id}/${user.token}`;
-//                 const html = generateDynamicEmail(user.userName, link);
-
-//                 sendMail({
-//                     email: user.email,
-//                     html, 
-//                     subject
-//                 })
-//                 return res.status(400).send("This link is expired. Kindly check your email for another email to verify.")
-//             }
-//             });
-
-//     } catch (err) {
-//         return res.status(500).json({
-//             message: "Internal server error: "+err.message,
-//         })
-//     }
-// };
+    } catch (err) {
+      return res.status(500).json({
+        message: "Internal server error: " + err.message,
+      });
+    }
+  };
 
 
 
 // Function to login a registered user
 const logIn = async (req, res) => {
     try {
-        const { error } = validateLogIn(req.body);
-        if (error) {
-            return res.status(500).json({
-                message: error.details[0].message,
-            })
-        } else {
-            const { email, userName, password } = req.body;
-            // Try finding by email
-            let checkUser = await userModel.findOne({ email });
-
-            // If not found by email, try finding by userName
-            if (!checkUser) {
-                checkUser = await userModel.findOne({ userName });
-            }
-
-            if (!checkUser) {
-                return res.status(404).json({
-                    message: "User not found, Please register"
-                });
-            }
+        const { email, userName, password } = req.body;
+        const checkEmail = await userModel.findOne( { $or: [{ email: userName }, { userName: email }] } );
+        if (!checkEmail) {
+          return res.status(404).json({
+            message: 'User not registered'
+          });
+        }
             const checkPassword = bcrypt.compareSync(password, checkUser.password);
             if (!checkPassword) {
                 return res.status(404).json({
@@ -233,7 +200,6 @@ const logIn = async (req, res) => {
                     message: "Sorry user not verified yet."
                 })
             }
-        }
     } catch (err) {
         return res.status(500).json({
             message: "Internal server error: " + err.message,
@@ -349,6 +315,7 @@ const signOut = async (req, res) => {
 module.exports = {
     signUp,
     verify,
+    resendOTP,
     logIn,
     forgetPassword,
     resetPage,
