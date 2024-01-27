@@ -9,6 +9,8 @@ const { generateDynamicEmail } = require("../emailText");
 const {resetFunc} = require("../forgot");
 const resetHTML = require("../resetHTML");
 
+
+
 //Function to signUp a new user
 const signUp = async (req, res) => {
     try {
@@ -127,7 +129,7 @@ const verify = async (req, res) => {
     }
   };
 
-  
+
 
 // Function to resend the OTP incase the user didn't get the OTP
 const resendOTP = async (req, res) => {
@@ -170,30 +172,30 @@ const resendOTP = async (req, res) => {
 const logIn = async (req, res) => {
     try {
         const { email, userName, password } = req.body;
-        const checkEmail = await userModel.findOne( { $or: [{ email: userName }, { userName: email }] } );
+        const checkEmail = await userModel.findOne( { $or: [{ email: userName }, { userName: email }, { email: email }, { userName: userName }] } );
         if (!checkEmail) {
           return res.status(404).json({
             message: 'User not registered'
           });
         }
-            const checkPassword = bcrypt.compareSync(password, checkUser.password);
+            const checkPassword = bcrypt.compareSync(password, checkEmail.password);
             if (!checkPassword) {
                 return res.status(404).json({
                     message: "Password is incorrect"
                 })
             }
-            if (checkUser.isVerified === true) {
+            if (checkEmail.isVerified === true) {
                 const token = jwt.sign({
-                    userId: checkUser._id,
-                    userName: checkUser.userName,
-                    isAdmin: checkUser.isAdmin
+                    userId: checkEmail._id,
+                    userName: checkEmail.userName,
+                    isAdmin: checkEmail.isAdmin
                 }, process.env.SECRET, { expiresIn: "5h" });
                 res.status(200).json({
-                    message: "Login Successfully! Welcome " + checkUser.userName,
+                    message: "Login Successfully! Welcome " + checkEmail.userName,
                     token: token
                 })
-                checkUser.token = token;
-                await checkUser.save();
+                checkEmail.token = token;
+                await checkEmail.save();
                 return;
             } else {
                 return res.status(400).json({
